@@ -1,8 +1,8 @@
+#include <math.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <sys/time.h>
 #include <stdlib.h>
-#include <math.h>
+#include <sys/time.h>
 
 #define MICROS_IN_SECOND 1000000
 
@@ -28,9 +28,9 @@ long millisDifference(struct timeval *tv, struct timeval *tv2) {
  * Main method
  */
 int main(int argc, char** argv) {
-	struct timeval tStartup, tInit, tPing, tPong, tFinish;
-	gettimeofday(&tInit, NULL);
-	
+	double start, elapsedInit, elapsedPingPong;
+	start = MPI_Wtime();
+
 	int MyProc, tag=1;
 	char msg='A', msg_recpt;
 	MPI_Status status;
@@ -40,16 +40,16 @@ int main(int argc, char** argv) {
 	printf("Process # %d started \n", MyProc);
 	
 	MPI_Barrier(MPI_COMM_WORLD);
-	gettimeofday(&tStartup, NULL);
+	elapsedInit = MPI_Wtime() - start;
 	
 	if (MyProc == 0) {
-		gettimeofday(&tPing, NULL);
+		start = MPI_Wtime();
 		printf("Sending message to Proc #1 \n") ;
 		MPI_Send(&msg, 1, MPI_CHAR, 1, tag, MPI_COMM_WORLD);
 
 		MPI_Recv(&msg_recpt, 1, MPI_CHAR, 1, tag, MPI_COMM_WORLD, &status);
 		printf("Recv'd message from Proc #1 \n") ;
-		gettimeofday(&tPong, NULL);
+		elapsedPingPong = MPI_Wtime() - start;
 	}
 	else {
 		MPI_Recv(&msg_recpt, 1, MPI_CHAR, 0, tag, MPI_COMM_WORLD, &status);
@@ -63,14 +63,9 @@ int main(int argc, char** argv) {
 
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Finalize();
-	gettimeofday(&tFinish, NULL);
-	
-	
 	
 	if ( MyProc == 0 ) {
-		printf(">>>>>>>>>>>>>> Initialized in %lu micros.\n", millisDifference(&tStartup, &tInit));
-		printf(">>>>>>>>>>>>>> Started pinging in %lu micros.\n", millisDifference(&tPing, &tStartup));
-		printf(">>>>>>>>>>>>>> Finished ping-pong in %lu micros.\n", millisDifference(&tPong, &tPong));
-		printf(">>>>>>>>>>>>>> Finished total execution in %lu micros.\n", millisDifference(&tFinish, &tInit));
+		printf(">>>>>>>>>>>>>> Initialized in %f.\n", elapsedInit);
+		printf(">>>>>>>>>>>>>> Finished ping-pong in %f.\n", elapsedPingPong);
 	}
 }
