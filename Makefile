@@ -9,7 +9,7 @@ all: $(BINARIES)
 
 # For each binary (depending on bin) compile the source code .c to bin/$@
 $(BINARIES): bin 
-	$(CC) $@.c -o bin/$@
+	$(CC) src/$@.c -o bin/$@
 
 # Bin creates the directory holding the executables.
 bin:
