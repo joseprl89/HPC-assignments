@@ -127,8 +127,25 @@
 			printf("%d,%d,%lu,PING\n", id, i , microsDifference(&tLoopEnd, &tLoopStart) / repetitions);
 		}
 
+		// Barrier the processes before starting for.
+		MPI_Barrier(MPI_COMM_WORLD);
 		
+		for ( int i = 0 ; i < 1000 ; i++ ) {
+			// Measure time of day.
+			gettimeofday(&tLoopStart, NULL);
 
+			// Ping data, 100 repetitions
+			pingData (1024*1024 * 32, 1,tag, id); // 32Mb once.
+
+			// Barrier the processes to ensure all have ended correctly
+			MPI_Barrier(MPI_COMM_WORLD);
+
+			// Get time of day again to compare to startup.
+			gettimeofday(&tLoopEnd, NULL);
+
+			// Print result in CSV format.
+			printf("%d,%d,%lu,PING DEVIATION\n", id, i , microsDifference(&tLoopEnd, &tLoopStart) / repetitions);
+		}
 
 		MPI_Finalize();
 	}
