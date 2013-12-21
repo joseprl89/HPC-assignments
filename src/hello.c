@@ -45,11 +45,29 @@
 		free(received);
 	}
 
+	int calculations ( int dataSize, int repetitions ) {
+		float* data = malloc(dataSize * sizeof(float));
+
+		for ( int i = 0 ; i < repetitions ; i++ ) {
+			for ( int j = 0 ; j < dataSize ; j++ ) {
+				// Perform some calculations in here.
+				float prev = data[j];
+				float a = prev * 4; // 1 op
+				float b = prev - 3.0f; // 2 op
+				float c = prev / 3; // 3 op
+				float d = prev + 1.0f; // 4 op
+				float e = a + b + c + d; // 5 - 7 op
+				data[j] = e / 6.0f; // 8 op
+			}
+		}
+		return dataSize * repetitions * 8;
+	}
+
 	/**
 	 * Main method
 	 */
 	int main(int argc, char** argv) {
-		struct timeval tStartup, tInit, tFinish,tLoopStart,tLoopEnd;
+		struct timeval tStartup, tInit, tFinish,tLoopStart,tLoopEnd,tCalcStart,tCalcEnd;
 		gettimeofday(&tInit, NULL);
 	
 		int id, tag=1;		
@@ -61,13 +79,36 @@
 
 		// CSV header
 		if ( id == 0 ) {
-			printf("ProcessId, bytesize, repetitions, elapsed\n");
+			printf("ProcessId, problem size, elapsed, process\n");
 		}
 
 		// Barrier the processes before starting for.
 		MPI_Barrier(MPI_COMM_WORLD);
+
 		// Measure time of day.
 		gettimeofday(&tStartup, NULL);
+
+		// Print initialize time.
+		printf("%d,0,%lu,INITIALIZE\n", id, microsDifference(&tStartup, &tInit));
+
+		// Measure time of day.
+		gettimeofday(&tCalcStart, NULL);
+
+		// Perform 1000 calculations over 1000 elements.
+		long flop = calculations(1000, 100000);
+
+		// Barrier the processes before starting for.
+		MPI_Barrier(MPI_COMM_WORLD);
+
+		// Measure time of day.
+		gettimeofday(&tCalcEnd, NULL);
+		
+
+		// Print result in CSV format.
+		printf("%d,%lu,%lu,CALCULATIONS\n", id, flop , microsDifference(&tCalcEnd, &tCalcStart) / repetitions);
+
+		// Barrier the processes before starting for.
+		MPI_Barrier(MPI_COMM_WORLD);
 
 		for ( int i = 2 ; i < (2<<20) ; i = i << 1) {
 			// Measure time of day.
@@ -83,12 +124,11 @@
 			gettimeofday(&tLoopEnd, NULL);
 
 			// Print result in CSV format.
-			printf("%d,%d,%d,%lu\n", id, i , repetitions, microsDifference(&tLoopEnd, &tLoopStart));
+			printf("%d,%d,%lu,PING\n", id, i , microsDifference(&tLoopEnd, &tLoopStart) / repetitions);
 		}
 
+		
+
+
 		MPI_Finalize();
-		if ( id == 0 ) {
-			// To remove no csv output use grep -v NOCSV
-			printf("NOCSV >>>>> Initialized in %lu micros.\n", microsDifference(&tStartup, &tInit));
-		}
 	}
