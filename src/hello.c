@@ -19,6 +19,7 @@
 	 * Sends pings back and forth accross the nodes.
 	 */
 	int pingData (int dataSize, int repetitions, int tag, int id) {
+		int i;
 		// Status
 		MPI_Status status;
 
@@ -28,7 +29,7 @@
 		received = (char*) malloc(dataSize * sizeof(char));
 
 		// Repeat as many times as required.
-		for ( int i = 0 ; i < repetitions ; i++ ) {
+		for ( i = 0 ; i < repetitions ; i++ ) {
 			// If my id is number 0, send ping then receive pong.
 			if (id == 0) {
 				MPI_Send(sent, dataSize * sizeof(char), MPI_CHAR, 1, tag, MPI_COMM_WORLD);
@@ -46,10 +47,11 @@
 	}
 
 	int calculations ( int dataSize, int repetitions ) {
+		int i,j;
 		float* data = malloc(dataSize * sizeof(float));
 
-		for ( int i = 0 ; i < repetitions ; i++ ) {
-			for ( int j = 0 ; j < dataSize ; j++ ) {
+		for ( i = 0 ; i < repetitions ; i++ ) {
+			for ( j = 0 ; j < dataSize ; j++ ) {
 				// Perform some calculations in here.
 				float prev = data[j];
 				float a = prev * 4; // 1 op
@@ -67,6 +69,7 @@
 	 * Main method
 	 */
 	int main(int argc, char** argv) {
+		int i;
 		struct timeval tStartup, tInit, tFinish,tLoopStart,tLoopEnd,tCalcStart,tCalcEnd;
 		gettimeofday(&tInit, NULL);
 	
@@ -110,7 +113,7 @@
 		// Barrier the processes before starting for.
 		MPI_Barrier(MPI_COMM_WORLD);
 
-		for ( int i = 2 ; i < (2<<20) ; i = i << 1) {
+		for ( i = 2 ; i < (2<<20) ; i = i << 1) {
 			// Measure time of day.
 			gettimeofday(&tLoopStart, NULL);
 
@@ -130,7 +133,7 @@
 		// Barrier the processes before starting for.
 		MPI_Barrier(MPI_COMM_WORLD);
 		
-		for ( int i = 0 ; i < 1000 ; i++ ) {
+		for ( i = 0 ; i < 1000 ; i++ ) {
 			// Measure time of day.
 			gettimeofday(&tLoopStart, NULL);
 

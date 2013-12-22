@@ -1,5 +1,5 @@
 # Compiler
-CC=mpicc -std=c99
+CC=mpicc -fopenmp 
 
 # Binaries to create
 BINARIES=hello solver
