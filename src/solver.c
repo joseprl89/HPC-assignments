@@ -8,8 +8,8 @@
 #define TRUE 1
 #define FALSE 0
 
-#define N 401
-#define ITERATIONS 1000
+#define N 4
+#define ITERATIONS 1
 
 // A matrix that contains all the data for practical purposes
 double ** A;
@@ -88,13 +88,7 @@ void solve(double **A, int n) {
 
      if (diff/((double)N*(double)N) < Tolerance)
        convergence=TRUE;
-
-
-printMatrix(A,n);
-
-
-
-	    } /*for*/
+   } /*for*/
 }
 
 
@@ -170,6 +164,90 @@ void solveMPI(double** A, int n) {
 	}
 }
 
+
+/**
+ * This method has two substantial differences with the previous one:
+ * * It is coded using MPI.
+ * * It does not modify the previous state of the matrix to calculate C' if the number of processes is larger than 1.
+ * The second difference is due to the fact that if we needed to calculate C'[i][j] before C'[i][j+1] (or similars) all the parallelism
+ * that could be achieved with this algorithm is almost lost as you would need to perform all operatins serially.
+ * 
+ * Another limitation known at the moment is that the size of the problem has module number of processes has to be 1, as the allgather method will block the execution until all processes
+ * have sent their data. If the problem size is not as previously defined, a process will send 0 bytes, and it will block its peers.
+ */
+void solveMPI2 (double** A, int n) {
+	MPI_Status status;
+	int convergence=FALSE;
+	double diff, tmp;
+	int i,j;
+	int for_iters;
+
+	int processes,id;
+	MPI_Comm_rank(MPI_COMM_WORLD, &id);
+	MPI_Comm_size(MPI_COMM_WORLD, &processes);
+
+	// Get start and end of the chunk
+	int chunkSize = (n-1) / processes;
+	int chunkStart = (id * chunkSize);
+	int chunkEnd = chunkStart + chunkSize;
+
+	// To assure the first row is not processed
+	chunkStart++;
+	chunkEnd++;
+
+	// Last process may have overjob.
+	if ( id == processes - 1 ) {
+		chunkEnd = n - 1;
+	}
+
+	printf("\n\nprocess %d/%d has chunk %d-%d / %d\n\n", id,processes, chunkStart,chunkEnd,chunkSize);
+
+	// Perform iterations
+	for ( for_iters = 0 ; for_iters < ITERATIONS ; for_iters++ ) {
+		diff = 0.0;
+		//printf("%d, Iteration %d\n",id,for_iters);
+
+		// First of all, wait for the previous process to send its calculations if we are not the first one.
+		if ( id > 0 && processes > 1 ) {
+			printf("%d, Receiving from %d  at address %d before ran.\n", id, id - 1, chunkStart - 1);
+			MPI_Recv(A[chunkStart-1], n, MPI_DOUBLE, id - 1, 0, MPI_COMM_WORLD, &status);
+		}
+
+		// the processes get a chunk each until the whole table is processed
+		for ( i = chunkStart ; i < chunkEnd ; i ++ ) {
+			printf("%d, Calculating row %d/%d\n",id, i, n);
+			for ( j=1 ; j < n-1 ; j++ ) {
+				tmp = A[i][j];
+				A[i][j] = 0.2 * (A[i][j] + A[i][j-1] + A[i-1][j] + A[i][j+1] + A[i+1][j]);
+				diff += fabs(A[i][j] - tmp);
+			}
+		}
+
+		// Send our calculations to previous process
+		if ( id > 0 && processes > 1) {
+			printf("%d, Sending to %d  at address %d\n",id, id - 1, chunkStart);
+			MPI_Send(A[ chunkStart ], n, MPI_DOUBLE, id - 1, 0, MPI_COMM_WORLD);
+		}
+
+		// If we are not the last one, send and receive from the next one 
+		if ( id < processes - 1 && processes > 1 ) {
+			printf("%d, Sending to %d at address %d\n",id, id + 1 , chunkEnd - 1);
+			MPI_Send(A[ chunkStart + chunkEnd ], n, MPI_DOUBLE, id + 1, 0, MPI_COMM_WORLD);
+			printf("%d, Receiving from %d  at address %d\n",id, id + 1 , chunkEnd);
+			MPI_Recv(A[ chunkStart + chunkEnd + 1 ], n, MPI_DOUBLE, id + 1, 0, MPI_COMM_WORLD, &status);
+		}
+
+		// Convergence calculation
+		if ( diff / ( (double) (N*N) ) < Tolerance) {
+			convergence=TRUE;
+		}
+	}
+
+	//Barrier execution.
+	MPI_Barrier(MPI_COMM_WORLD);
+}
+
+
 void solveMPIMP(double** A, int n) {
 	/* Fork a team of threads giving them their own copies of variables */
 	int nthreads,tid;
@@ -210,7 +288,7 @@ void solveMPIMP(double** A, int n) {
 		}
 
 		if (id == 0) {
-			printMatrix(A,n);
+			//printMatrix(A,n);
 		}
 
 		// Gather once every rows / process count.
@@ -231,7 +309,7 @@ void solveMPIMP(double** A, int n) {
 
 		// All should end the iterations at the same pace.
 		if (id == 0) {
-			printMatrix(A,n);
+			//printMatrix(A,n);
 		}
 	}
 }
@@ -282,17 +360,27 @@ int main(int argc, char * argv[]) {
 	MPI_Barrier(MPI_COMM_WORLD);
 
 
+	// All should end the iterations at the same pace.
+	if (id == 0) {
+		printMatrix(A,N);
+	}
+
 	// MPI Code
 	initialize(A, N);
 
 	if ( id == 0) printf("MPI code ");
 	t_start=usecs();
-	solveMPI(A, N);
+	solveMPI2(A, N);
 	t_end=usecs();
 
 	time = ((double)(t_end-t_start))/1000000;
 	if ( id == 0) printf("computation time = %f\n", time);
 	MPI_Barrier(MPI_COMM_WORLD);
+
+	// All should end the iterations at the same pace.
+	if (id == 0) {
+		printMatrix(A,N);
+	}
 
 	// MPI + MP code.
 	initialize(A, N);
@@ -304,6 +392,11 @@ int main(int argc, char * argv[]) {
 	time = ((double)(t_end-t_start))/1000000;
 	if ( id == 0) printf("computation time = %f\n", time);
 	MPI_Barrier(MPI_COMM_WORLD);
+
+	// All should end the iterations at the same pace.
+	if (id == 0) {
+		printMatrix(A,N);
+	}
 
 
 	// Finalize mpi and buffer.
