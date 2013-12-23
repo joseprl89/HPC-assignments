@@ -1,0 +1,15 @@
+# This is an example hostfile.  Comments begin with #
+#
+# The following node is a single processor machine:
+#foo.example.com
+
+# The following node is a dual-processor machine:
+#bar.example.com slots=2
+
+# The following node is a quad-processor machine, and we absolutely
+# want to disallow over-subscribing it:
+#yow.example.com slots=4 max-slots=4
+
+compute-0-0
+compute-0-1
+compute-0-2
